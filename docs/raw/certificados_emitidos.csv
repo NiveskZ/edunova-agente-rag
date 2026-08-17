@@ -1,0 +1,11 @@
+certificado_id,aluno,curso_id,curso_nome,data_emissao,codigo_autenticacao
+CERT-2026-00001,Ana Beatriz Souza,C001,Python para Análise de Dados,2026-02-10,EDN-8F3K2A
+CERT-2026-00002,Carlos Eduardo Lima,C002,Marketing Digital na Prática,2026-02-14,EDN-9J7Q1B
+CERT-2026-00003,Fernanda Ribeiro,C004,Design de Interfaces (UI/UX),2026-03-02,EDN-2M4T7C
+CERT-2026-00004,João Pedro Alves,C006,Excel Avançado para Empresas,2026-03-18,EDN-5R1V9D
+CERT-2026-00005,Larissa Martins,C005,Inglês para Negócios,2026-04-05,EDN-7X2N4E
+CERT-2026-00006,Marcos Vinícius Costa,C007,Fundamentos de Inteligência Artificial,2026-04-22,EDN-3H8L6F
+CERT-2026-00007,Patrícia Gomes,C003,Gestão de Projetos Ágeis,2026-05-09,EDN-1Y6B3G
+CERT-2026-00008,Rafael Nunes,C001,Python para Análise de Dados,2026-05-30,EDN-4Q9C2H
+CERT-2026-00009,Sabrina Oliveira,C010,Design Gráfico para Redes Sociais,2026-06-11,EDN-6W5D8I
+CERT-2026-00010,Thiago Fernandes,C008,Liderança e Gestão de Pessoas,2026-07-01,EDN-9Z2E1J

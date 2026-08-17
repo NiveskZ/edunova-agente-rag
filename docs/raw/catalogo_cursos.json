@@ -1,0 +1,64 @@
+{
+  "cursos": [
+    {
+      "id": "C001",
+      "nome": "Python para Análise de Dados",
+      "carga_horaria": 60,
+      "categoria": "Tecnologia"
+    },
+    {
+      "id": "C002",
+      "nome": "Marketing Digital na Prática",
+      "carga_horaria": 40,
+      "categoria": "Marketing Digital"
+    },
+    {
+      "id": "C003",
+      "nome": "Gestão de Projetos Ágeis",
+      "carga_horaria": 50,
+      "categoria": "Gestão"
+    },
+    {
+      "id": "C004",
+      "nome": "Design de Interfaces (UI/UX)",
+      "carga_horaria": 80,
+      "categoria": "Design"
+    },
+    {
+      "id": "C005",
+      "nome": "Inglês para Negócios",
+      "carga_horaria": 100,
+      "categoria": "Idiomas"
+    },
+    {
+      "id": "C006",
+      "nome": "Excel Avançado para Empresas",
+      "carga_horaria": 30,
+      "categoria": "Tecnologia"
+    },
+    {
+      "id": "C007",
+      "nome": "Fundamentos de Inteligência Artificial",
+      "carga_horaria": 45,
+      "categoria": "Tecnologia"
+    },
+    {
+      "id": "C008",
+      "nome": "Liderança e Gestão de Pessoas",
+      "carga_horaria": 35,
+      "categoria": "Gestão"
+    },
+    {
+      "id": "C009",
+      "nome": "Espanhol Básico ao Intermediário",
+      "carga_horaria": 90,
+      "categoria": "Idiomas"
+    },
+    {
+      "id": "C010",
+      "nome": "Design Gráfico para Redes Sociais",
+      "carga_horaria": 40,
+      "categoria": "Design"
+    }
+  ]
+}
