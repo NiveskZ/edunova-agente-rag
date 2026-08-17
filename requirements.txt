@@ -7,3 +7,7 @@ python-pptx==1.0.2
 openpyxl==3.1.5
 beautifulsoup4==4.15.0
 lxml==6.1.1
+langchain-oracledb==1.5.0
+oracledb==4.0.2
+langchain-huggingface[full]==1.2.2
+python-dotenv==1.2.3

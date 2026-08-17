@@ -8,6 +8,16 @@ venv/
 # Env / segredos
 .env
 .env.*
+!.env.example
+
+# Wallet do Autonomous Database (credenciais, nunca commitar)
+wallet/
+*.sso
+*.p12
+*.pem
+tnsnames.ora
+sqlnet.ora
+ojdbc.properties
 
 # SO / editor
 .DS_Store
