@@ -19,5 +19,8 @@ tnsnames.ora
 sqlnet.ora
 ojdbc.properties
 
+# Logs de interacao (dados de usuario, gerados em runtime)
+logs/*.jsonl
+
 # SO / editor
 .DS_Store

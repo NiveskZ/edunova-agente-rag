@@ -54,6 +54,15 @@ def buscar(pergunta: str, k: int = K) -> list[Document]:
         return vector_store.similarity_search(pergunta, k=k, filter=filtro)
 
 
+def buscar_com_score(pergunta: str, k: int = K) -> list[tuple[Document, float]]:
+    """Retorna (documento, distancia cosseno), quanto menor mais similar."""
+    tema = detectar_tema(pergunta)
+    filtro = {"tema": tema} if tema else None
+    with conectar() as connection:
+        vector_store = criar_vector_store(connection)
+        return vector_store.similarity_search_with_score(pergunta, k=k, filter=filtro)
+
+
 def criar_retriever(connection, k: int = K) -> VectorStoreRetriever:
     vector_store = criar_vector_store(connection)
     return vector_store.as_retriever(search_type="similarity", search_kwargs={"k": k})

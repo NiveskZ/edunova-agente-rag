@@ -11,3 +11,6 @@ langchain-oracledb==1.5.0
 oracledb==4.0.2
 langchain-huggingface[full]==1.2.2
 python-dotenv==1.2.3
+langgraph==1.2.11
+langchain-groq==1.0.1
+streamlit==1.61.1
