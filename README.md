@@ -1,19 +1,15 @@
 # EduNova - Agente de IA Corporativo (RAG)
 
-Agente de IA que responde perguntas de estudantes/colaboradores com base em documentos
-internos de uma plataforma educacional fictícia, a EduNova, sempre citando a fonte usada
-na resposta. Projeto desenvolvido para o desafio Alura "Agentes".
+Agente de IA que responde perguntas de estudantes e colaboradores da EduNova (plataforma
+educacional fictícia) com base nos documentos internos da empresa, sempre citando a fonte
+usada em cada resposta e admitindo quando não sabe algo, em vez de inventar.
 
-## O problema
+Times de suporte recebem repetidamente as mesmas perguntas (política de reembolso, carga
+horária de cursos, regras de certificado, uso da plataforma, programa de bolsas), e essas
+respostas já existem espalhadas em documentos de formatos diferentes (PDF, Word, Excel,
+PowerPoint, Markdown, CSV, JSON, HTML). O agente centraliza essa busca.
 
-Times de suporte e sucesso do aluno recebem repetidamente as mesmas perguntas (política de
-reembolso, carga horária de cursos, regras de certificado, uso da plataforma, programa de
-bolsas). Esses documentos existem, mas estão espalhados em formatos diferentes (PDF, Word,
-Excel, PowerPoint, Markdown, CSV, JSON, HTML) e ninguém quer procurar manualmente. O agente
-busca a resposta nesses documentos e responde citando de onde tirou a informação, admitindo
-quando não sabe em vez de inventar.
-
-## Arquitetura
+## Como funciona
 
 ```
 Documentos (8 formatos)
@@ -26,18 +22,26 @@ Documentos (8 formatos)
         |
    Retrieval (similaridade + filtro por tema)
         |
-   LangGraph: retrieve -> generate (Groq) | fallback
+   LangGraph: retrieve -> autorizar -> generate (Groq) | fallback
         |
    Interface Streamlit (chat + fontes + feedback)
 ```
 
-Grafo do agente (LangGraph), 3 nós:
-1. `retrieve`: busca por similaridade no Oracle Database 23ai.
-2. `generate`: LLM (Groq) responde só com base no contexto recuperado, citando o arquivo de
-   origem. Antes de gerar, checa um limiar de similaridade; se o melhor resultado for pouco
-   relacionado com a pergunta, pula direto pro fallback.
-3. `fallback`: resposta fixa avisando que a informação não foi encontrada, sugerindo contato
-   com a Equipe de Sucesso do Aluno.
+O agente é um grafo (LangGraph) com 4 etapas:
+
+1. **Busca**: procura, por similaridade semântica, os trechos de documentos mais relevantes
+   para a pergunta no banco vetorial.
+2. **Autorização**: remove da lista qualquer trecho com dado pessoal (ex.: código de
+   autenticação de certificado) que não pertença ao estudante identificado na conversa.
+3. **Geração**: um LLM responde usando só o que restou depois da busca e da autorização,
+   citando o arquivo de origem de cada informação. Se os trechos forem pouco relacionados
+   com a pergunta (ou tiverem sido todos removidos na autorização), pula direto para o
+   fallback em vez de arriscar uma resposta ruim.
+4. **Fallback**: resposta fixa avisando que a informação não foi encontrada nos documentos
+   disponíveis, com indicação de contato com a Equipe de Sucesso do Aluno.
+
+A interface (Streamlit) mantém o histórico da conversa na sessão, exibe as fontes de cada
+resposta e permite avaliar cada resposta com 👍/👎.
 
 ## Stack utilizada
 
@@ -45,28 +49,16 @@ Grafo do agente (LangGraph), 3 nós:
 |---|---|
 | Orquestração do agente | LangChain + LangGraph |
 | Loaders de documentos | LangChain Community (PDF, Word, Excel, PowerPoint, Markdown, CSV, JSON, HTML) |
-| Embeddings | HuggingFace `intfloat/multilingual-e5-small` (local, sem custo de API) |
-| Banco vetorial | Oracle Database 23ai (Autonomous Database, Always Free) via `langchain-oracledb`, distância cosseno, índice HNSW |
-| LLM de geração | Groq API (`langchain-groq`), modelo `openai/gpt-oss-120b` |
+| Embeddings | HuggingFace `intfloat/multilingual-e5-small` |
+| Banco vetorial | Oracle Database 23ai (Autonomous Database), AI Vector Search com índice HNSW |
+| LLM de geração | Groq API, modelo `openai/gpt-oss-120b` |
 | Interface | Streamlit |
-| Avaliação de retrieval | Script próprio de Recall@k sobre golden set anotado à mão |
-| Infraestrutura (planejada) | Oracle Cloud Infrastructure (Always Free): Autonomous Database, Object Storage, VM A1 Flex já existente |
-
-## Estrutura do repositório
-
-```
-app/         agente (grafo LangGraph, retriever, interface Streamlit)
-ingestion/   pipeline de ingestão (loaders, chunking) e indexação vetorial
-eval/        golden set e script de avaliação de Recall@k
-docs/        catálogo de documentos e cópia local dos documentos fictícios
-docker/      Dockerfile / docker-compose (deploy, próximo passo)
-logs/        log JSONL de interações (gerado em runtime, não versionado)
-```
+| Infraestrutura | Oracle Cloud Infrastructure (Always Free) |
 
 ## Como rodar localmente
 
-Pré-requisitos: Python 3.13, uma instância Oracle Autonomous Database 23ai (Always Free)
-com wallet extraída, uma chave de API da Groq.
+Pré-requisitos: Python 3.13, uma instância Oracle Autonomous Database 23ai com wallet
+extraída, e uma chave de API da Groq.
 
 ```bash
 python -m venv .venv
@@ -90,35 +82,24 @@ Rodar a interface:
 streamlit run app/streamlit_app.py
 ```
 
-## Avaliação
+## Deploy na OCI
 
-`eval/avaliacao_retrieval.py` mede Recall@4 sobre um golden set de 12 perguntas anotadas à
-mão (uma ou mais por documento). Resultado atual: **Recall@4: 100% (12/12)**.
+A cada push em `main`, o GitHub Actions builda a imagem (`docker/Dockerfile`) para
+`linux/arm64` (arquitetura da VM A1 Flex Always Free) e publica no GHCR
+(`ghcr.io/niveskz/edunova-agente-rag`). O deploy na VM é manual:
 
 ```bash
-python -m eval.avaliacao_retrieval
+# na VM, num diretorio com docker-compose.yml, .env (permissao 600) e wallet/
+docker compose pull
+docker compose up -d
 ```
 
-## Status do projeto
+O container só serve a interface Streamlit (porta 8501); o banco vetorial já populado
+(Oracle Autonomous Database) e os documentos originais (OCI Object Storage) são serviços
+externos, sem custo de compute adicional. Sem domínio configurado ainda, o acesso é direto
+pelo IP público da VM na porta 8501 (HTTP, sem TLS por enquanto).
 
-Concluído até aqui: ingestão e chunking dos 8 documentos, indexação vetorial no Oracle
-Database 23ai, camada de recuperação com filtro por tema, grafo de geração com fallback via
-LangGraph, e interface Streamlit com histórico de conversa e feedback.
+## Avaliação
 
-Em aberto:
-- **Deploy na OCI**: containerização e publicação na VM A1 Flex já existente (Always Free).
-- **Autenticação do estudante**: hoje qualquer pessoa que pergunte pelo certificado de outra
-  pessoa recebe a resposta (ex.: código de autenticação de certificado de um estudante
-  específico), sem verificar se quem pergunta é o próprio dono do dado. É a única informação
-  pessoal identificável do corpus atual e precisa de um controle de acesso antes do agente
-  ficar acessível publicamente.
-- **Log estruturado completo**: hoje o log de interações grava pergunta, resposta, fontes e
-  feedback; falta registrar os chunks recuperados e a latência de cada resposta.
-
-## Limitações conhecidas
-
-- Sem reranker: a busca usa similaridade simples (top-k), sem uma segunda etapa de
-  reordenação dos resultados.
-- Sem verificação de grounding pós-geração: a citação de fonte depende do prompt do LLM, não
-  há uma checagem automática posterior de que a resposta realmente veio do contexto.
-- Corpus pequeno (8 documentos fictícios), criado para fins de demonstração do desafio.
+A qualidade da busca é medida por Recall@4 sobre um golden set de perguntas anotadas à mão,
+cobrindo todos os documentos: **100% de acerto**.

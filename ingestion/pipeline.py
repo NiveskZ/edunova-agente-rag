@@ -70,13 +70,16 @@ def _chunk_texto_corrido(texto: str, metadados: dict[str, str]) -> list[Document
     ]
 
 
-def _documento_por_registro(registros: list[dict], metadados: dict[str, str]) -> list[Document]:
+def _documento_por_registro(
+    registros: list[dict], metadados: dict[str, str], campo_dono: str | None = None
+) -> list[Document]:
     documentos = []
     for i, registro in enumerate(registros):
         conteudo = "\n".join(f"{campo}: {valor}" for campo, valor in registro.items())
-        documentos.append(
-            Document(page_content=limpar_texto(conteudo), metadata={**metadados, "chunk_index": i})
-        )
+        meta = {**metadados, "chunk_index": i}
+        if campo_dono and registro.get(campo_dono):
+            meta["dono"] = registro[campo_dono]
+        documentos.append(Document(page_content=limpar_texto(conteudo), metadata=meta))
     return documentos
 
 
@@ -131,10 +134,12 @@ def processar_xlsx(caminho: Path, metadados: dict[str, str]) -> list[Document]:
     return _documento_por_registro(registros, metadados)
 
 
-def processar_csv(caminho: Path, metadados: dict[str, str]) -> list[Document]:
+def processar_csv(
+    caminho: Path, metadados: dict[str, str], campo_dono: str | None = None
+) -> list[Document]:
     with caminho.open(encoding="utf-8") as f:
         registros = list(csv.DictReader(f))
-    return _documento_por_registro(registros, metadados)
+    return _documento_por_registro(registros, metadados, campo_dono=campo_dono)
 
 
 def processar_json(caminho: Path, metadados: dict[str, str]) -> list[Document]:
@@ -157,13 +162,24 @@ _PROCESSADORES = {
 }
 
 
+# Unico documento do corpus com dado pessoal identificavel (nome + codigo de
+# autenticacao). Marcar o "dono" de cada chunk permite ao no `autorizar` do
+# grafo (Passo 5/7) filtrar por estudante identificado antes do `generate`.
+_ARQUIVO_COM_DONO = "certificados_emitidos.csv"
+_CAMPO_DONO = "aluno"
+
+
 def processar_documentos() -> list[Document]:
     catalogo = carregar_catalogo()
     documentos: list[Document] = []
     for arquivo in catalogo:
         caminho = RAW_DIR / arquivo
         processador = _PROCESSADORES[caminho.suffix.lower()]
-        documentos.extend(processador(caminho, _metadados_base(arquivo, catalogo)))
+        metadados = _metadados_base(arquivo, catalogo)
+        if arquivo == _ARQUIVO_COM_DONO:
+            documentos.extend(processador(caminho, metadados, campo_dono=_CAMPO_DONO))
+        else:
+            documentos.extend(processador(caminho, metadados))
     return documentos
 
 

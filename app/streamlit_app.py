@@ -55,6 +55,12 @@ st.info(
     icon="🤖",
 )
 
+nome_estudante = st.text_input(
+    "Seu nome completo (opcional, necessário só para consultar dados do seu "
+    "próprio certificado)",
+    key="nome_estudante",
+)
+
 if "historico" not in st.session_state:
     st.session_state.historico = []
 
@@ -84,7 +90,9 @@ if pergunta:
         st.write(pergunta)
     with st.chat_message("assistant"), st.spinner("Consultando os documentos..."):
         grafo = carregar_grafo()
-        resultado = grafo.invoke({"pergunta": pergunta})
+        resultado = grafo.invoke(
+            {"pergunta": pergunta, "estudante_identificado": nome_estudante or None}
+        )
         resposta = resultado["resposta"]
         fontes = resultado["fontes"]
         st.write(resposta)

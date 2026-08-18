@@ -1,0 +1,19 @@
+services:
+  app:
+    image: ghcr.io/niveskz/edunova-agente-rag:latest
+    restart: unless-stopped
+    # Limite conservador pra nunca disputar recurso com o resto que roda na
+    # VM: embeddings sao so um modelo pequeno em CPU e a geracao e via API
+    # (Groq), entao a app nao precisa de muito. Ajustar pra cima se sobrar
+    # CPU/RAM ocioso na VM.
+    cpus: "1.0"
+    mem_limit: "1g"
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    volumes:
+      # ORACLE_WALLET_DIR no .env da VM deve apontar pro caminho dentro do
+      # container, ex.: /app/wallet/Wallet_edunovadb (nao pro caminho do host).
+      - ./wallet:/app/wallet:ro
+      - ./logs:/app/logs

@@ -11,7 +11,7 @@ import os
 
 import oracledb
 from dotenv import load_dotenv
-from langchain_oracledb.vectorstores.oraclevs import OracleVS, create_index
+from langchain_oracledb.vectorstores.oraclevs import OracleVS, create_index, drop_table_purge
 from langchain_oracledb.vectorstores.utils import DistanceStrategy
 
 from ingestion.embeddings import criar_embeddings
@@ -21,8 +21,6 @@ load_dotenv()
 
 TABLE_NAME = "edunova_chunks"
 INDEX_NAME = "edunova_hnsw_idx"
-
-ORA_TABLE_NOT_FOUND = 942
 
 
 def conectar() -> oracledb.Connection:
@@ -37,16 +35,6 @@ def conectar() -> oracledb.Connection:
     )
 
 
-def _dropar_tabela_se_existir(connection: oracledb.Connection, table_name: str) -> None:
-    with connection.cursor() as cursor:
-        try:
-            cursor.execute(f"DROP TABLE {table_name} PURGE")
-        except oracledb.DatabaseError as erro:
-            (error_obj,) = erro.args
-            if error_obj.code != ORA_TABLE_NOT_FOUND:
-                raise
-
-
 def indexar() -> None:
     documentos = processar_documentos()
     print(f"{len(documentos)} chunks para indexar.")
@@ -54,7 +42,12 @@ def indexar() -> None:
     embeddings = criar_embeddings()
 
     with conectar() as connection:
-        _dropar_tabela_se_existir(connection, TABLE_NAME)
+        # Precisa do mesmo quoting de identificador que o OracleVS usa
+        # internamente (nome de tabela e case-sensitive, entre aspas duplas);
+        # um DROP TABLE sem aspas aqui virava um no-op silencioso (Oracle
+        # dobra pra maiusculo e nao acha a tabela real), acumulando linhas
+        # duplicadas a cada reindexacao.
+        drop_table_purge(connection, TABLE_NAME)
 
         vector_store = OracleVS(
             client=connection,
