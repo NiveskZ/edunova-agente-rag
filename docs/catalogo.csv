@@ -1,10 +1,10 @@
-arquivo,tema,data_atualizacao,responsavel_ficticio
-regimento_estudante.docx,matricula,2026-07-15,Equipe de Sucesso do Aluno
-politica_reembolso_matriculas.pdf,matricula,2026-06-01,Equipe de Sucesso do Aluno
-politica_reembolso_matriculas_v1_desatualizada.pdf,matricula,2023-03-10,Equipe de Sucesso do Aluno
-faq_cursos_certificados.md,cursos,2026-05-20,Equipe de Sucesso do Aluno
-guia_uso_plataforma.html,plataforma,2026-04-10,Equipe de Sucesso do Aluno
-programa_bolsas_afiliados.pptx,bolsas,2026-03-01,Equipe de Sucesso do Aluno
-tabela_cursos_precos.xlsx,cursos,2026-07-01,Equipe de Sucesso do Aluno
-catalogo_cursos.json,cursos,2026-07-01,Equipe de Sucesso do Aluno
-certificados_emitidos.csv,certificados,2026-07-01,Equipe de Sucesso do Aluno
+arquivo,tema,data_atualizacao,responsavel_ficticio,status
+regimento_estudante.docx,matricula,2026-07-15,Equipe de Sucesso do Aluno,vigente
+politica_reembolso_matriculas.pdf,matricula,2026-06-01,Equipe de Sucesso do Aluno,vigente
+politica_reembolso_matriculas_v1_desatualizada.pdf,matricula,2023-03-10,Equipe de Sucesso do Aluno,obsoleto
+faq_cursos_certificados.md,cursos,2026-05-20,Equipe de Sucesso do Aluno,vigente
+guia_uso_plataforma.html,plataforma,2026-04-10,Equipe de Sucesso do Aluno,vigente
+programa_bolsas_afiliados.pptx,bolsas,2026-03-01,Equipe de Sucesso do Aluno,vigente
+tabela_cursos_precos.xlsx,cursos,2026-07-01,Equipe de Sucesso do Aluno,vigente
+catalogo_cursos.json,cursos,2026-07-01,Equipe de Sucesso do Aluno,vigente
+certificados_emitidos.csv,certificados,2026-07-01,Equipe de Sucesso do Aluno,vigente

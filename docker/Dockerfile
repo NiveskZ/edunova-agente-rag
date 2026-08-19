@@ -12,6 +12,9 @@ RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/wh
 
 COPY app/ app/
 COPY ingestion/ ingestion/
+# Relatorio de metricas do log de execucao, rodado dentro do container
+# (docker compose exec app python -m eval.metricas_log).
+COPY eval/ eval/
 COPY .streamlit/ .streamlit/
 
 EXPOSE 8501

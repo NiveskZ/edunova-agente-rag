@@ -1,13 +1,16 @@
-"""Camada de recuperacao (RAG) sobre o Oracle Database 23ai indexado no Passo 3.
+"""Camada de recuperacao (RAG) sobre o Oracle Database 26ai indexado no Passo 3.
 
-Filtro por tema (Passo 4, item 2): heuristica simples de palavra-chave, sem
-classificador extra. So filtra se a pergunta mencionar claramente um dos temas
-do catalogo; caso contrario busca sem filtro nas TABLE_NAME inteira.
+Dois filtros de metadados sao aplicados na busca:
+
+- `status = vigente` (sempre): versoes antigas ja revisadas de um documento
+  (marcadas como `obsoleto` em docs/catalogo.csv) continuam indexadas, mas
+  nunca chegam ao LLM. Curadoria do Passo 1, item 3.
+- `tema` (Passo 4, item 2): heuristica simples de palavra-chave, sem
+  classificador extra. So filtra se a pergunta mencionar claramente um dos
+  temas do catalogo.
 """
 
 from __future__ import annotations
-
-import re
 
 from langchain_core.documents import Document
 from langchain_core.vectorstores import VectorStoreRetriever
@@ -37,6 +40,15 @@ def detectar_tema(pergunta: str) -> str | None:
     return None
 
 
+def montar_filtro(pergunta: str) -> dict[str, str]:
+    """Filtro de metadados da busca: vigencia sempre, tema quando detectado."""
+    filtro = {"status": "vigente"}
+    tema = detectar_tema(pergunta)
+    if tema:
+        filtro["tema"] = tema
+    return filtro
+
+
 def criar_vector_store(connection) -> OracleVS:
     return OracleVS(
         client=connection,
@@ -47,8 +59,7 @@ def criar_vector_store(connection) -> OracleVS:
 
 
 def buscar(pergunta: str, k: int = K) -> list[Document]:
-    tema = detectar_tema(pergunta)
-    filtro = {"tema": tema} if tema else None
+    filtro = montar_filtro(pergunta)
     with conectar() as connection:
         vector_store = criar_vector_store(connection)
         return vector_store.similarity_search(pergunta, k=k, filter=filtro)
@@ -56,8 +67,7 @@ def buscar(pergunta: str, k: int = K) -> list[Document]:
 
 def buscar_com_score(pergunta: str, k: int = K) -> list[tuple[Document, float]]:
     """Retorna (documento, distancia cosseno), quanto menor mais similar."""
-    tema = detectar_tema(pergunta)
-    filtro = {"tema": tema} if tema else None
+    filtro = montar_filtro(pergunta)
     with conectar() as connection:
         vector_store = criar_vector_store(connection)
         return vector_store.similarity_search_with_score(pergunta, k=k, filter=filtro)
@@ -65,7 +75,10 @@ def buscar_com_score(pergunta: str, k: int = K) -> list[tuple[Document, float]]:
 
 def criar_retriever(connection, k: int = K) -> VectorStoreRetriever:
     vector_store = criar_vector_store(connection)
-    return vector_store.as_retriever(search_type="similarity", search_kwargs={"k": k})
+    return vector_store.as_retriever(
+        search_type="similarity",
+        search_kwargs={"k": k, "filter": {"status": "vigente"}},
+    )
 
 
 if __name__ == "__main__":

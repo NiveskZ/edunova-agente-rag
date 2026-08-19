@@ -1,4 +1,4 @@
-"""Indexacao vetorial: embeda os chunks do Passo 2 e popula o Oracle Database 23ai.
+"""Indexacao vetorial: embeda os chunks do Passo 2 e popula o Oracle Database 26ai.
 
 Script unico e reexecutavel (ver PLANO_DESENVOLVIMENTO.md Passo 3): dropa e recria a
 tabela vetorial a cada execucao. Reindexacao completa e aceitavel nesse volume de

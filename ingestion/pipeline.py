@@ -1,7 +1,7 @@
 """Pipeline de ingestao: loaders por formato -> limpeza -> chunking -> metadados.
 
 Um processador por formato dos 8 documentos do EduNova (docs/raw/), metadados
-(arquivo, tema, data_atualizacao) herdados de docs/catalogo.csv.
+(arquivo, tema, data_atualizacao, status) herdados de docs/catalogo.csv.
 """
 
 from __future__ import annotations
@@ -57,6 +57,9 @@ def _metadados_base(arquivo: str, catalogo: dict[str, dict[str, str]]) -> dict[s
         "arquivo": arquivo,
         "tema": info["tema"],
         "data_atualizacao": info["data_atualizacao"],
+        # `obsoleto` marca a versao antiga de um documento ja revisado: continua
+        # indexada (auditoria/curadoria) mas o retriever nao a entrega ao LLM.
+        "status": info["status"],
     }
 
 
