@@ -2,12 +2,13 @@ services:
   app:
     image: ghcr.io/niveskz/edunova-agente-rag:latest
     restart: unless-stopped
-    # Limite conservador pra nunca disputar recurso com o resto que roda na
-    # VM: embeddings sao so um modelo pequeno em CPU e a geracao e via API
-    # (Groq), entao a app nao precisa de muito. Ajustar pra cima se sobrar
-    # CPU/RAM ocioso na VM.
+    # Medido localmente (Passo 8): so importar torch/transformers ja usa
+    # ~930MB de RSS antes de carregar qualquer modelo; com o e5-small
+    # carregado (uma unica vez, cacheado) fica em ~1.4GB em regime estavel.
+    # O limite de 1g original nao tinha essa folga e o container morria por
+    # OOM (exit 137) reguarmente. 2g da margem sobre o pico medido.
     cpus: "1.0"
-    mem_limit: "1g"
+    mem_limit: "2g"
     ports:
       - "8501:8501"
     env_file:

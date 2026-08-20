@@ -73,6 +73,19 @@ def buscar_com_score(pergunta: str, k: int = K) -> list[tuple[Document, float]]:
         return vector_store.similarity_search_with_score(pergunta, k=k, filter=filtro)
 
 
+def buscar_registros_arquivo(arquivo: str, k: int = 20) -> list[Document]:
+    """Busca todos os chunks de um arquivo especifico, ignorando relevancia
+    semantica (usada para lookup exato por `dono`, ex.: achar o registro de
+    matricula de um estudante identificado, sem depender do ranking do top-k
+    principal). k=20 cobre folgadamente o tamanho atual dos arquivos com
+    dono deste corpus."""
+    with conectar() as connection:
+        vector_store = criar_vector_store(connection)
+        return vector_store.similarity_search(
+            arquivo, k=k, filter={"arquivo": arquivo, "status": "vigente"}
+        )
+
+
 def criar_retriever(connection, k: int = K) -> VectorStoreRetriever:
     vector_store = criar_vector_store(connection)
     return vector_store.as_retriever(

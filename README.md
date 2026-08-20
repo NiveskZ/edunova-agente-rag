@@ -22,10 +22,16 @@ arriscar uma resposta inventada:
 
 ![Resposta de fallback para pergunta fora do escopo](docs/imagens/02-fallback-fora-de-escopo.png)
 
-Dado pessoal (código de autenticação de certificado) só é liberado para o próprio estudante.
-Sem identificação, o trecho é removido do contexto antes da geração da resposta:
+Dado pessoal (código de autenticação de certificado, situação de matrícula) só é liberado para
+o próprio estudante. Sem identificação, o trecho é removido do contexto antes da geração da
+resposta e o agente explica que a informação é pessoal, em vez de um fallback genérico:
 
-![Bloqueio e liberação de dado pessoal conforme o estudante identificado](docs/imagens/03-autorizacao-dado-pessoal.png)
+![Pergunta pessoal sem identificação, bloqueada com mensagem específica](docs/imagens/03a-sem-identificacao.png)
+
+Ao preencher o nome, um indicador visual confirma a identificação e a mesma pergunta passa a
+ser respondida, citando a fonte:
+
+![Nome identificado (indicador visual) e resposta liberada](docs/imagens/03b-com-identificacao.png)
 
 Registro de execução: métricas calculadas a partir do log de interações do container em
 produção (taxa de fallback, latência, feedback e documentos mais citados):
@@ -42,14 +48,17 @@ flowchart TD
     E["Pergunta do estudante"] --> F["retrieve<br/>busca semântica + filtros<br/>de metadados"]
     D --> F
     F --> G["autorizar<br/>remove dado pessoal<br/>de terceiros"]
-    G -->|contexto relevante| H["generate<br/>LLM responde citando<br/>o arquivo de origem"]
-    G -->|nada relevante| I["fallback<br/>admite que não encontrou"]
+    G --> P["personalizar_reembolso<br/>calculo deterministico da<br/>banda de reembolso do aluno"]
+    P -->|contexto relevante| H["generate<br/>LLM responde citando<br/>o arquivo de origem"]
+    P -->|bloqueado por privacidade| I2["fallback_privacidade<br/>pede identificacao"]
+    P -->|nada relevante| I["fallback<br/>admite que não encontrou"]
     H --> J["Interface Streamlit<br/>chat, fontes, feedback"]
     I --> J
+    I2 --> J
     J --> K["Log JSONL de execução"]
 ```
 
-O agente é um grafo (LangGraph) com 4 nós:
+O agente é um grafo (LangGraph) com 6 nós:
 
 1. **retrieve**: busca por similaridade semântica os trechos mais relevantes para a pergunta
    no banco vetorial. Dois filtros de metadados são aplicados: apenas documentos vigentes
@@ -57,23 +66,32 @@ O agente é um grafo (LangGraph) com 4 nós:
    e, quando a pergunta menciona claramente um dos temas do catálogo, apenas aquele tema.
 2. **autorizar**: remove do contexto qualquer trecho com dado pessoal que não pertença ao
    estudante identificado na conversa. Sem identificação, todo trecho com dono definido é
-   descartado.
-3. **generate**: o LLM responde usando só o que restou depois da busca e da autorização,
-   citando o arquivo de origem de cada informação. Se os trechos recuperados forem pouco
-   relacionados com a pergunta (distância acima do limiar calibrado) ou tiverem sido todos
-   removidos na autorização, o grafo desvia para o fallback em vez de arriscar uma resposta.
-4. **fallback**: resposta fixa avisando que a informação não foi encontrada nos documentos
+   descartado, e o grafo registra se algo relevante foi removido por esse motivo.
+3. **personalizar_reembolso**: quando a pergunta é sobre reembolso e o estudante está
+   identificado, busca o registro de matrícula dele (data da compra e % do curso concluído) e
+   calcula deterministicamente, em Python, qual banda da política de reembolso se aplica a ele.
+   O cálculo nunca é deixado a cargo do LLM, evitando datas erradas por alucinação; o resultado
+   é injetado no contexto para o LLM formatar a resposta em cima dele.
+4. **generate**: o LLM responde usando só o que restou depois da busca, autorização e (se
+   houver) o cálculo personalizado, citando o arquivo de origem de cada informação. Se os
+   trechos recuperados forem pouco relacionados com a pergunta (distância acima do limiar
+   calibrado), o grafo desvia para um dos fallbacks em vez de arriscar uma resposta.
+5. **fallback**: resposta fixa avisando que a informação não foi encontrada nos documentos
    disponíveis, com indicação de contato com a Equipe de Sucesso do Aluno.
+6. **fallback_privacidade**: quando o que foi removido na autorização era relevante para a
+   pergunta, uma mensagem específica pede a identificação, em vez do fallback genérico.
 
 A interface (Streamlit) mantém o histórico da conversa na sessão, deixa claro que se trata de
-um agente de IA, exibe as fontes de cada resposta e permite avaliar cada uma com 👍/👎.
+um agente de IA, mostra um indicador visual quando o nome do estudante está identificado, exibe
+as fontes de cada resposta, permite avaliar cada uma com 👍/👎 e limita o número de perguntas
+por sessão (proteção mínima de uso da cota da Groq e dos recursos da VM).
 
 ## Base de conhecimento
 
-Nove arquivos fictícios em `docs/raw/`, um por formato exigido, mais uma versão desatualizada
-de uma política para exercitar a curadoria. Os metadados de cada documento (tema, data de
-atualização, responsável e status de vigência) vêm de `docs/catalogo.csv` e são herdados por
-todos os chunks gerados.
+Dez arquivos fictícios em `docs/raw/`, um por formato exigido, mais uma versão desatualizada
+de uma política (curadoria) e um dataset de matrículas (personalização). Os metadados de cada
+documento (tema, data de atualização, responsável e status de vigência) vêm de
+`docs/catalogo.csv` e são herdados por todos os chunks gerados.
 
 | Documento | Formato | Tema |
 |---|---|---|
@@ -86,6 +104,11 @@ todos os chunks gerados.
 | Tabela de cursos e preços | Excel (.xlsx) | cursos |
 | Catálogo de cursos | JSON | cursos |
 | Certificados emitidos | CSV | certificados |
+| Matrículas de alunos (data da compra, % concluído) | CSV | matrícula |
+
+`certificados_emitidos.csv` e `matriculas_alunos.csv` têm dado pessoal identificável (nome do
+aluno), marcado como `dono` em cada chunk: é o metadado que o nó `autorizar` usa para liberar
+essas informações só para o próprio estudante.
 
 Documentos de texto corrido são divididos com `RecursiveCharacterTextSplitter` (800
 caracteres, 120 de sobreposição); Excel, CSV e JSON são divididos por registro, um chunk por
@@ -168,6 +191,11 @@ os documentos originais são serviços externos, sem custo de compute adicional.
 tem 530MB, com o `torch` instalado a partir do índice CPU-only para não arrastar os pacotes
 CUDA (que levavam a imagem a mais de 9GB, inviável na VM Always Free).
 
+O `mem_limit` do `docker-compose.yml` está em 2GB: só importar `torch`/`transformers` já usa
+~930MB de RSS antes de carregar qualquer modelo, e o modelo de embeddings carregado (uma única
+vez por processo, cacheado) chega a ~1.4GB em regime estável. Um limite mais apertado (o
+projeto começou com 1g) derrubava o container por OOM (exit 137) repetidamente.
+
 Sem domínio configurado, o acesso é direto pelo IP público da VM na porta 8501, em HTTP.
 
 ## Registro de execução
@@ -216,10 +244,16 @@ python -m eval.avaliacao_retrieval
 - **Identificação sem autenticação real**: o filtro de dado pessoal usa o nome declarado pelo
   próprio usuário, sem login. Serve para demonstrar a separação de contexto, mas em produção
   exigiria autenticação de verdade.
+- **% concluído do curso é dado estático**: `matriculas_alunos.csv` não vem de um tracker de
+  progresso de verdade, é só o valor fictício usado para demonstrar o cálculo personalizado de
+  reembolso. Numa integração real, viria do sistema que registra o progresso do aluno no curso.
+- **Limite de uso é por sessão do navegador**: protege contra uma única sessão abusando da cota
+  da Groq, mas não contra várias sessões simultâneas. Um limite diário global (ex.: contador
+  compartilhado em arquivo) ficou fora do escopo por agora.
 - **Sem TLS**: o acesso é HTTP pelo IP público, já que o projeto não tem domínio associado.
 - **Sem reranker**: a busca é por similaridade pura, com k=4. O Recall@4 de 100% no golden set
   não justificou a peça extra neste volume de documentos.
 - **Atualização manual da base**: mudou um documento, roda a indexação de novo. Para um corpus
-  de nove arquivos, uma rotina automática seria complexidade sem retorno.
+  de dez arquivos, uma rotina automática seria complexidade sem retorno.
 - **Deploy manual**: o CI publica a imagem, mas o `docker compose pull && up -d` na VM é feito
   à mão, para não guardar credencial de SSH da VM como secret do repositório.

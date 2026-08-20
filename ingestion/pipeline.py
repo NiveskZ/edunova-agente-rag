@@ -74,7 +74,10 @@ def _chunk_texto_corrido(texto: str, metadados: dict[str, str]) -> list[Document
 
 
 def _documento_por_registro(
-    registros: list[dict], metadados: dict[str, str], campo_dono: str | None = None
+    registros: list[dict],
+    metadados: dict[str, str],
+    campo_dono: str | None = None,
+    campos_extra: list[str] | None = None,
 ) -> list[Document]:
     documentos = []
     for i, registro in enumerate(registros):
@@ -82,6 +85,9 @@ def _documento_por_registro(
         meta = {**metadados, "chunk_index": i}
         if campo_dono and registro.get(campo_dono):
             meta["dono"] = registro[campo_dono]
+        for campo in campos_extra or []:
+            if registro.get(campo) is not None:
+                meta[campo] = registro[campo]
         documentos.append(Document(page_content=limpar_texto(conteudo), metadata=meta))
     return documentos
 
@@ -138,11 +144,16 @@ def processar_xlsx(caminho: Path, metadados: dict[str, str]) -> list[Document]:
 
 
 def processar_csv(
-    caminho: Path, metadados: dict[str, str], campo_dono: str | None = None
+    caminho: Path,
+    metadados: dict[str, str],
+    campo_dono: str | None = None,
+    campos_extra: list[str] | None = None,
 ) -> list[Document]:
     with caminho.open(encoding="utf-8") as f:
         registros = list(csv.DictReader(f))
-    return _documento_por_registro(registros, metadados, campo_dono=campo_dono)
+    return _documento_por_registro(
+        registros, metadados, campo_dono=campo_dono, campos_extra=campos_extra
+    )
 
 
 def processar_json(caminho: Path, metadados: dict[str, str]) -> list[Document]:
@@ -165,11 +176,18 @@ _PROCESSADORES = {
 }
 
 
-# Unico documento do corpus com dado pessoal identificavel (nome + codigo de
-# autenticacao). Marcar o "dono" de cada chunk permite ao no `autorizar` do
-# grafo (Passo 5/7) filtrar por estudante identificado antes do `generate`.
-_ARQUIVO_COM_DONO = "certificados_emitidos.csv"
-_CAMPO_DONO = "aluno"
+# Documentos do corpus com dado pessoal identificavel. Marcar o "dono" de cada
+# chunk permite ao no `autorizar` do grafo (Passo 5/7) filtrar por estudante
+# identificado antes do `generate`. `matriculas_alunos.csv` tambem carrega
+# `data_matricula`/`percentual_concluido` como metadado (nao so no texto do
+# chunk) para o calculo determinístico de reembolso personalizado (Passo 8).
+_ARQUIVOS_COM_DONO = {
+    "certificados_emitidos.csv": {"campo_dono": "aluno"},
+    "matriculas_alunos.csv": {
+        "campo_dono": "aluno",
+        "campos_extra": ["data_matricula", "percentual_concluido"],
+    },
+}
 
 
 def processar_documentos() -> list[Document]:
@@ -179,8 +197,9 @@ def processar_documentos() -> list[Document]:
         caminho = RAW_DIR / arquivo
         processador = _PROCESSADORES[caminho.suffix.lower()]
         metadados = _metadados_base(arquivo, catalogo)
-        if arquivo == _ARQUIVO_COM_DONO:
-            documentos.extend(processador(caminho, metadados, campo_dono=_CAMPO_DONO))
+        config_dono = _ARQUIVOS_COM_DONO.get(arquivo)
+        if config_dono:
+            documentos.extend(processador(caminho, metadados, **config_dono))
         else:
             documentos.extend(processador(caminho, metadados))
     return documentos
